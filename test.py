@@ -1,11 +1,8 @@
 
 from typing import Annotated, Any, Dict, Optional, TypedDict
 from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled
-
 from langchain_community.document_loaders import PyPDFLoader 
-
 from langchain_core.messages import BaseMessage, SystemMessage
-
 import re
 from langgraph.graph import StateGraph, END, START
 from langchain_ollama import ChatOllama
@@ -30,11 +27,7 @@ llm = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash",
     temperature=0.2
 )
-# llm = ChatOllama(
-#     model="qwen3",
-#     # model="mistral:latest",  
-#     temperature=0.2
-# )
+
 embeddings = OllamaEmbeddings(
     model="nomic-embed-text:latest",  
 )
@@ -72,27 +65,7 @@ def format_docs(retrieved_docs):
 router_parser = PydanticOutputParser(pydantic_object=RouterOutput)
 intent_parser = PydanticOutputParser(pydantic_object=IntentOutput)
 
-# def router_node(state: AgentState):
-#     print("\ninside router node")
-#     if state.get("file_path"):
-#         path = state["file_path"].lower()
-
-#     prompt = f"""
-#     You are a router agent.
-
-#     User input:
-#     {state['input']}
-
-#     {router_parser.get_format_instructions()}
-#     """
-
-#     response = llm.invoke(prompt)
-
-#     parsed = router_parser.parse(response.content)
-#     print("\nparsed router output:", parsed)
-#     return {
-#         "task": parsed.task
-#     }
+# router node to route the incoming text from user
 def router_node(state: AgentState):
     print("\ninside router node")
 
@@ -124,7 +97,7 @@ def router_node(state: AgentState):
     parsed = router_parser.parse(llm.invoke(prompt).content)
     return {"task": parsed.task}
 
-
+# pf node to process pdf
 def pdf_node(state: AgentState):
     print("\ninside pdf node")
     # pdf_path = extract_file_path(state["input"])
@@ -138,6 +111,7 @@ def pdf_node(state: AgentState):
     print("\n pdf text :" , text[:100])
     return {"extracted_text": text}
 
+# image node to process image
 def image_node(state: AgentState):
     print("\ninside image node")
     image_path = state.get("file_path")
@@ -146,6 +120,7 @@ def image_node(state: AgentState):
     print("\n image text :" , text[:100])
     return {"extracted_text": text}
 
+# audio node to process audio
 def audio_node(state: AgentState):
     print("\ninside audio node")
     audio_path = state.get("file_path")
@@ -159,6 +134,7 @@ def audio_node(state: AgentState):
     print("\n audio text :" , text[:100])
     return {"extracted_text": text}
 
+# youtube node to process youtube
 def youtube_node(state: AgentState):
     print("\nFetching YouTube transcript for URL:", state["input"])
     video_id = re.search(r"v=([^&]+)", state["input"]).group(1)
@@ -170,10 +146,12 @@ def youtube_node(state: AgentState):
     print("\nExtracted transcript text:", text[:100])  # Print first 500 characters
     return {"extracted_text": text}
 
+# to process text 
 def text_node(state: AgentState):
     print("\ninside text node")
     return {"extracted_text": state["input"]}
 
+# to process code
 def code_node(state: AgentState):
     print("\ninside code node")
     prompt = f"""
@@ -185,6 +163,7 @@ def code_node(state: AgentState):
     print("explanation:", explanation)
     return {"output": explanation}
 
+# to summarize the output of previous node
 def summarizer_node(state: AgentState):
     print("\ninside summarizer node")
     prompt = f"""
@@ -201,6 +180,7 @@ def summarizer_node(state: AgentState):
     print("summary:", summary)
     return {"output": summary}
 
+# to calculate sentiment
 def sentiment_node(state: AgentState):
     print("\ninside sentiment node")
     prompt = f"""
@@ -214,6 +194,7 @@ def sentiment_node(state: AgentState):
     print("sentiment:", sentiment)
     return {"output": sentiment}
 
+# for rag implementation
 def rag_node(state: AgentState):
     print("\ninside rag_node")
 
@@ -244,6 +225,7 @@ def rag_node(state: AgentState):
     answer = llm.invoke(prompt).content
     return {"output": answer}
 
+# to diverge the output according to the intent
 def intent_router_node(state: AgentState):
     print("\ninside intent_router_node")
     prompt = f"""
@@ -274,6 +256,7 @@ def route_by_task(state: AgentState) -> str:
 
 builder = StateGraph(AgentState)
 
+# creating nodes
 builder.add_node("router", router_node)
 builder.add_node("pdf", pdf_node)
 builder.add_node("image", image_node)
@@ -286,6 +269,7 @@ builder.add_node("sentiment", sentiment_node)
 builder.add_node("intent_router", intent_router_node)
 builder.add_node("rag", rag_node)
 
+# creating edges
 builder.add_edge(START, "router")
 builder.add_conditional_edges(
     "router",
@@ -297,7 +281,6 @@ builder.add_conditional_edges(
         "youtube": "youtube",
         "text": "text",
         "code": "code",
-        # "sentiment": "sentiment",
     }
 )
  
@@ -319,14 +302,4 @@ builder.add_edge("rag", END)
 builder.add_edge("sentiment", END)
 builder.add_edge("code", END)
 chatbot = builder.compile()
-
-
-# result = chatbot.invoke({
-#     # "input": "what experience does this candidate have? in Yash_Ranbhare_Resume.pdf"
-#     "input": "explain the Turing Test conceptin this video https://www.youtube.com/watch?v=Gfr50f6ZBvo"
-#     # "input":"what is the capital of france?"
-# })
-
-# print("\nFinal output: \n")
-# print(result["output"])
 

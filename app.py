@@ -2,11 +2,8 @@ import streamlit as st
 import tempfile
 import os
 
-from test import chatbot   # your backend file
+from test import chatbot   
 
-# --------------------------------------------------
-# PAGE CONFIG
-# --------------------------------------------------
 st.set_page_config(
     page_title="Agentic Multi-Modal Assistant",
     page_icon="🤖",
@@ -18,9 +15,6 @@ st.caption("Text • PDF • Image • Audio • YouTube")
 
 st.divider()
 
-# --------------------------------------------------
-# INPUTS
-# --------------------------------------------------
 user_text = st.text_area(
     "Enter your query",
     placeholder="Ask a question, request a summary, paste a YouTube link…",
@@ -34,9 +28,6 @@ uploaded_file = st.file_uploader(
 
 run_btn = st.button("🚀 Run Agent")
 
-# --------------------------------------------------
-# EXECUTION
-# --------------------------------------------------
 if run_btn:
 
     if not user_text and not uploaded_file:
